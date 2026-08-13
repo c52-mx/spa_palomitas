@@ -1,0 +1,8 @@
+# Respaldos / paquetes locales (no forman parte del código fuente)
+*.zip
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
+node_modules/
