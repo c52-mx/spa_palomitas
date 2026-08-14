@@ -1,0 +1,8 @@
+{
+  "name": "spa-palomitas",
+  "compatibility_date": "2026-08-13",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "none"
+  }
+}
