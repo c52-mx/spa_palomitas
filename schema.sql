@@ -21,10 +21,17 @@ create table if not exists config (
   constraint config_single check (id = 1)
 );
 
-create table if not exists gramajes (
-  g      int primary key,
-  precio numeric not null,
+create table if not exists tamanos (
+  id     text primary key,   -- chica | mediana | grande | extra_grande
+  nombre text not null,
   orden  int default 0
+);
+
+create table if not exists precios_tamano (
+  categoria text not null,          -- salado | dulce | icee
+  tamano_id text not null references tamanos(id),
+  precio    numeric not null,
+  primary key (categoria, tamano_id)
 );
 
 create table if not exists sabores (
@@ -80,22 +87,24 @@ create table if not exists orders (
   total         numeric,
   anticipo      numeric,
   notas         text,
+  direccion     text,
   estatus       text default 'pendiente'   -- pendiente | confirmado | entregado | cancelado
 );
 
 -- ---------- RLS ----------
-alter table config   enable row level security;
-alter table gramajes enable row level security;
-alter table sabores  enable row level security;
-alter table combos   enable row level security;
-alter table extras   enable row level security;
-alter table orders   enable row level security;
+alter table config        enable row level security;
+alter table tamanos       enable row level security;
+alter table precios_tamano enable row level security;
+alter table sabores       enable row level security;
+alter table combos        enable row level security;
+alter table extras        enable row level security;
+alter table orders        enable row level security;
 
 -- Catalogo: lectura publica, escritura solo admin autenticado
 do $$
 declare t text;
 begin
-  foreach t in array array['config','gramajes','sabores','combos','extras'] loop
+  foreach t in array array['config','tamanos','precios_tamano','sabores','combos','extras'] loop
     execute format('drop policy if exists "%s_read"  on %I;', t, t);
     execute format('drop policy if exists "%s_write" on %I;', t, t);
     execute format('create policy "%s_read"  on %I for select to anon, authenticated using (true);', t, t);
@@ -116,9 +125,21 @@ insert into config (id, negocio, whatsapp_numero, zonas) values
    '["Zona Heroes 1","Zona Heroes 2","Zona Heroes 3","Zona Heroes 4","Zona Heroes 5","Zona Heroes 6","Tecamac","Ojo de Agua (cobertura parcial)"]'::jsonb)
 on conflict (id) do nothing;
 
-insert into gramajes (g, precio, orden) values
-  (50,35,1),(100,59,2),(150,79,3),(200,99,4),(300,135,5)
-on conflict (g) do nothing;
+-- migracion desde el modelo anterior por gramaje, si existia en una corrida previa
+drop table if exists gramajes;
+
+insert into tamanos (id, nombre, orden) values
+  ('chica','Chica',1),
+  ('mediana','Mediana',2),
+  ('grande','Grande',3),
+  ('extra_grande','Extra grande',4)
+on conflict (id) do nothing;
+
+insert into precios_tamano (categoria, tamano_id, precio) values
+  ('salado','chica',15),  ('salado','mediana',25),  ('salado','grande',45),  ('salado','extra_grande',60),
+  ('dulce','chica',25),   ('dulce','mediana',35),   ('dulce','grande',55),   ('dulce','extra_grande',80),
+  ('icee','chica',25),    ('icee','mediana',35),    ('icee','grande',55),    ('icee','extra_grande',80)
+on conflict (categoria, tamano_id) do nothing;
 
 insert into sabores (id,nombre,cat,icon,badge,orden) values
   ('naturales','Naturales / saladas','salado','🍿',null,1),
@@ -161,10 +182,11 @@ on conflict (id) do nothing;
 --  se recalculan desde el catalogo. Valida disponibilidad, stock y minimo.
 -- ============================================================
 drop policy if exists "orders_insert" on orders;  -- ya no se inserta directo; solo via funcion
+drop function if exists crear_pedido(text,date,text,text,text,jsonb,text);
 
 create or replace function crear_pedido(
   p_cliente text, p_fecha date, p_entrega text, p_zona text, p_pago text,
-  p_items jsonb, p_notas text
+  p_items jsonb, p_notas text, p_direccion text default null
 ) returns jsonb
 language plpgsql
 security definer
@@ -173,7 +195,7 @@ as $$
 declare
   cfg config%rowtype;
   it jsonb;
-  v_key text; v_qty int; v_g int; v_id text;
+  v_key text; v_qty int; v_tamano text; v_id text; v_cat text; v_tam_nombre text;
   v_precio numeric; v_nombre text; v_tipo text; v_hint text; v_env_incl boolean;
   v_disp boolean; v_stock int;
   arr jsonb := '[]'::jsonb;
@@ -189,13 +211,14 @@ begin
     if v_qty <= 0 then continue; end if;
 
     if position(':' in v_key) > 0 then
-      v_id := split_part(v_key, ':', 1);
-      v_g  := split_part(v_key, ':', 2)::int;
-      select s.nombre, s.disponible, s.stock into v_nombre, v_disp, v_stock from sabores s where s.id = v_id;
+      v_id     := split_part(v_key, ':', 1);
+      v_tamano := split_part(v_key, ':', 2);
+      select s.nombre, s.disponible, s.stock, s.cat into v_nombre, v_disp, v_stock, v_cat from sabores s where s.id = v_id;
       if v_nombre is null then raise exception 'Sabor no encontrado: %', v_id; end if;
-      select g.precio into v_precio from gramajes g where g.g = v_g;
-      if v_precio is null then raise exception 'Gramaje no valido: %', v_g; end if;
-      v_nombre := v_nombre || ' ' || v_g || 'g'; v_tipo := 'palomita'; v_hint := null; v_env_incl := false;
+      select pt.precio into v_precio from precios_tamano pt where pt.categoria = v_cat and pt.tamano_id = v_tamano;
+      if v_precio is null then raise exception 'Tamano no valido: %', v_tamano; end if;
+      select t.nombre into v_tam_nombre from tamanos t where t.id = v_tamano;
+      v_nombre := v_nombre || ' ' || coalesce(v_tam_nombre, v_tamano); v_tipo := 'palomita'; v_hint := null; v_env_incl := false;
     else
       select nombre, precio, disponible, stock, combo_hint, envio_incluido, 'combo'
         into v_nombre, v_precio, v_disp, v_stock, v_hint, v_env_incl, v_tipo from combos where id = v_key;
@@ -228,13 +251,13 @@ begin
   total    := subtotal + envio;
   anticipo := round(total * cfg.anticipo_pct);
 
-  insert into orders (cliente,fecha_entrega,entrega,zona,pago,items,piezas,subtotal,envio,total,anticipo,notas,estatus)
+  insert into orders (cliente,fecha_entrega,entrega,zona,pago,items,piezas,subtotal,envio,total,anticipo,notas,direccion,estatus)
   values (p_cliente, p_fecha, p_entrega, case when es_envio then p_zona else null end, p_pago, arr,
-          piezas, subtotal, envio, total, anticipo, p_notas, 'pendiente')
+          piezas, subtotal, envio, total, anticipo, p_notas, case when es_envio then p_direccion else null end, 'pendiente')
   returning id into new_id;
 
   return jsonb_build_object('order_id',new_id,'items',arr,'piezas',piezas,'subtotal',subtotal,
     'envio',envio,'envio_gratis',envio_gratis,'total',total,'anticipo',anticipo,'es_envio',es_envio);
 end $$;
 
-grant execute on function crear_pedido(text,date,text,text,text,jsonb,text) to anon, authenticated;
+grant execute on function crear_pedido(text,date,text,text,text,jsonb,text,text) to anon, authenticated;

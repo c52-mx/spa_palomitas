@@ -54,17 +54,24 @@ panel muestra una pantalla de "falta configurar".
 
 - **config** (una fila, `id=1`): negocio, whatsapp_numero, pedido_minimo, anticipacion_dias,
   tope_por_sabor, costo_envio, anticipo_pct, hora_abre, hora_cierra, horario, zonas (jsonb).
-- **gramajes** (`g` PK, precio, orden): escalera global de tamaños.
+- **tamanos** (`id` PK text: `chica|mediana|grande|extra_grande`, nombre, orden): catálogo de
+  tamaños. No trae precio (ver `precios_tamano`).
+- **precios_tamano** (`categoria` + `tamano_id` PK compuesta, precio): matriz de precio por
+  categoría (`salado|dulce|icee`) × tamaño. Reemplaza a la vieja tabla `gramajes` (un solo precio
+  global por peso); ahora el precio depende de la categoría del sabor, no solo del tamaño.
 - **sabores** (`id` PK text, nombre, cat `salado|dulce|icee`, icon, img, badge, disponible,
-  stock, orden). El precio **no** vive aquí: sale del gramaje elegido.
+  stock, orden). El precio **no** vive aquí: sale de `precios_tamano` cruzando `cat` del sabor
+  con el tamaño elegido.
 - **combos** (`id`, nombre, descripcion, precio, icon, badge, combo_hint, envio_incluido,
   disponible, stock, orden).
 - **extras** (`id`, nombre, descripcion, precio, icon, cat, disponible, stock, orden).
-- **orders** (`id` uuid, creado, cliente, fecha_entrega, entrega, zona, pago, items jsonb,
-  piezas, subtotal, envio, total, anticipo, notas, estatus `pendiente|confirmado|entregado|cancelado`).
+- **orders** (`id` uuid, creado, cliente, fecha_entrega, entrega, zona, direccion, pago,
+  items jsonb, piezas, subtotal, envio, total, anticipo, notas,
+  estatus `pendiente|confirmado|entregado|cancelado`). `direccion` es texto libre (sin API de
+  mapas/geocoding), solo se llena cuando `entrega = envio`.
 
-**Claves compuestas del carrito:** las palomitas se identifican como `"<saborId>:<gramaje>"`
-(ej. `queso:100`); combos y extras usan su `id` directo. `items` en `orders` guarda
+**Claves compuestas del carrito:** las palomitas se identifican como `"<saborId>:<tamanoId>"`
+(ej. `queso:grande`); combos y extras usan su `id` directo. `items` en `orders` guarda
 `[{key, nombre, qty, importe, tipo, comboHint}]`.
 
 ## 5. Catálogo y configuración de negocio (valores actuales)
@@ -77,15 +84,18 @@ panel muestra una pantalla de "falta configurar".
   tope **10 por sabor y tamaño** (más = pedido especial); **anticipo 50%**; horario **10–22 h**.
 - **Pago:** efectivo o transferencia.
 
-**Precios por gramaje** (costo → venta → margen bruto):
+**Precios por tamaño y categoría** (decisión del negocio; el margen queda por debajo del ~70%
+histórico en tamaños chicos — se avisó y se dejó así a propósito):
 
-| Gramaje | Costo | Venta | Margen |
+| Tamaño | Saladas | Dulces | Icees |
 |---|---|---|---|
-| 50 g  | $10.00 | $35  | 71% |
-| 100 g | $16.50 | $59  | 72% |
-| 150 g | $23.00 | $79  | 71% |
-| 200 g | $29.50 | $99  | 70% |
-| 300 g | $42.00 | $135 | 69% |
+| Chica | $15 | $25 | $25 |
+| Mediana | $25 | $35 | $35 |
+| Grande | $45 | $55 | $55 |
+| Extra grande | $60 | $80 | $80 |
+
+Icees usa la misma tabla que dulces. No se muestra el peso en gramos en la UI (solo el nombre
+del tamaño), aunque cada tamaño puede llevar un peso de referencia interno para control de costos.
 
 **Combos:** Pack Degustación $299 (4×150 g, envío incluido) · Pack Fiesta $549 (6×200 g, envío
 incluido) · Combo Cine $175 (2×100 g + 2 refrescos).
@@ -96,8 +106,8 @@ Queso-caramelo, Mora azul, Uva, Sandía, Picafresa) e icees (Azul, Rojo, Combina
 
 ## 6. Flujo del pedido
 
-1. Cliente arma la comanda (sabor + gramaje, combos, extras), fecha (selector bloquea antes del
-   mínimo de anticipación), entrega (pickup/envío + zona), pago, notas.
+1. Cliente arma la comanda (sabor + tamaño, combos, extras), fecha (selector bloquea antes del
+   mínimo de anticipación), entrega (pickup/envío + zona + dirección si es envío), pago, notas.
 2. Validaciones de UI: mínimo, tope por línea, nombre y fecha obligatorios.
 3. Al confirmar, **si hay Supabase**: `sb.rpc('crear_pedido', { p_items:[{key,qty}], ... })`.
    La función recalcula todo desde el catálogo, valida y **registra** el pedido en `orders`.
@@ -115,10 +125,12 @@ Queso-caramelo, Mora azul, Uva, Sandía, Picafresa) e icees (Azul, Rojo, Combina
 
 ## 8. Función `crear_pedido` (validación de costos)
 
-`crear_pedido(p_cliente, p_fecha, p_entrega, p_zona, p_pago, p_items jsonb, p_notas) → jsonb`
+`crear_pedido(p_cliente, p_fecha, p_entrega, p_zona, p_pago, p_items jsonb, p_notas, p_direccion default null) → jsonb`
 
 - Recorre `p_items` (solo `key`+`qty`; **ignora cualquier precio del cliente**).
-- Resuelve cada `key`: `sabor:gramaje` → precio del gramaje; si no, busca en combos y luego en extras.
+- Resuelve cada `key`: `sabor:tamano` → toma la `cat` del sabor y busca el precio en
+  `precios_tamano` cruzando `categoria` + `tamano_id`; si no, busca en combos y luego en extras.
+- `p_direccion` solo se guarda cuando `p_entrega = 'envio'`.
 - Valida: producto existe, `disponible`, `stock` suficiente, y **pedido mínimo** (5 palomitas o combo).
 - Calcula subtotal, envío (0 si combo con `envio_incluido`), total y anticipo desde `config`.
 - Inserta en `orders` y devuelve `{order_id, items, piezas, subtotal, envio, envio_gratis, total, anticipo, es_envio}`.
@@ -126,28 +138,26 @@ Queso-caramelo, Mora azul, Uva, Sandía, Picafresa) e icees (Azul, Rojo, Combina
 ## 9. Estado actual (hecho y probado)
 
 - ✅ SPA del cliente: catálogo en vivo desde Supabase con fallback local; oculta agotados/no
-  disponibles; comanda tipo ticket; selector de gramaje por sabor; combos y extras; pill de
-  estatus por horario; branding del logo; handoff a WhatsApp.
+  disponibles; comanda tipo ticket; selector de tamaño por sabor (precio según categoría);
+  dirección de entrega cuando es envío; combos y extras; pill de estatus por horario; branding
+  del logo; handoff a WhatsApp.
 - ✅ Validación de costos server-side (`crear_pedido`) + registro de pedidos.
-- ✅ Panel admin: login, CRUD de config/gramajes/sabores/combos/extras (con disponible + stock),
-  lista de pedidos con cambio de estatus, y **dashboard "Resumen"** (pedidos de hoy y monto,
+- ✅ Panel admin: login, CRUD de config/tamaños (matriz de precio por categoría)/sabores/combos/
+  extras (con disponible + stock), lista de pedidos con cambio de estatus (incluye dirección), y
+  **dashboard "Resumen"** (pedidos de hoy y monto,
   anticipos por cobrar, ventas confirmadas, total, conteo por estatus, top de productos).
 - ✅ `schema.sql` idempotente con tablas, RLS, seed del catálogo y la función.
 
 ### Pruebas (correr antes de dar por bueno)
 
 Enfoque: lógica pura en Node; SQL contra Postgres real (pglite); SPAs montadas en jsdom con
-Supabase simulado. Última corrida verde:
+Supabase simulado. Los archivos de prueba usan `vue`, `jsdom` y `@electric-sql/pglite` (npm) y
+no están incluidos en este repo (se recrean/exportan aparte).
 
-| Suite | Qué valida | Estado |
-|---|---|---|
-| schema | DDL + RLS + seed contra pglite | 12/12 |
-| función `crear_pedido` | recálculo, ignora precio del cliente, stock, mínimo, inexistentes | 10/10 |
-| cliente (jsdom) | carga en vivo, fallback, oculta agotados, RPC con solo key+qty, totales del servidor | 14/14 |
-| panel (jsdom) | gate de config, login, CRUD, dashboard | 13/13 |
-
-Los archivos de prueba usan `vue`, `jsdom` y `@electric-sql/pglite` (npm). No están incluidos
-en este entregable; se pueden exportar aparte.
+> ⚠️ **Desactualizado tras el cambio de gramajes → tamaños (2026-08-19).** La última corrida
+> verde (schema 12/12, función 10/10, cliente 14/14, panel 13/13) fue contra el modelo viejo de
+> `gramajes`. Con `tamanos` + `precios_tamano` y el campo `direccion`, hay que rehacer/actualizar
+> esas suites antes de confiar en "probado" otra vez — no se han vuelto a correr.
 
 ## 10. Backlog (priorizado por valor real)
 

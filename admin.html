@@ -198,26 +198,39 @@
         </div>
       </div>
 
-      <!-- GRAMAJES -->
-      <div v-show="tab==='gramajes'">
-        <div class="card" v-for="g in gramajes" :key="g.g">
+      <!-- TAMAÑOS -->
+      <div v-show="tab==='tamanos'">
+        <div class="card" v-for="cat in ['salado','dulce','icee']" :key="cat">
+          <b>Precios · {{ cat==='salado'?'Saladas':(cat==='dulce'?'Dulces':'Icees') }}</b>
+          <div class="row" style="margin-top:8px">
+            <div v-for="t in tamanos" :key="t.id">
+              <label>{{ t.nombre }}</label>
+              <input v-model.number="preciosMatriz[cat+':'+t.id]" type="number">
+            </div>
+          </div>
+        </div>
+        <div class="acts"><button class="btn sm" @click="guardarPrecios">Guardar precios</button></div>
+
+        <div class="card" v-for="t in tamanos" :key="t.id" style="margin-top:14px">
           <div class="row">
-            <div><label>Gramaje (g)</label><input v-model.number="g.g" type="number" disabled></div>
-            <div><label>Precio</label><input v-model.number="g.precio" type="number"></div>
+            <div><label>Id</label><input v-model="t.id" disabled></div>
+            <div><label>Nombre</label><input v-model="t.nombre"></div>
+            <div><label>Orden</label><input v-model.number="t.orden" type="number"></div>
           </div>
           <div class="acts">
             <span style="flex:1"></span>
-            <button class="btn sm" @click="guardar('gramajes',g,'g')">Guardar</button>
-            <button class="btn gray sm" @click="eliminar('gramajes',g,'g')">Eliminar</button>
+            <button class="btn sm" @click="guardar('tamanos',t,'id')">Guardar</button>
+            <button class="btn gray sm" @click="eliminar('tamanos',t,'id')">Eliminar</button>
           </div>
         </div>
         <div class="card">
-          <b>Agregar gramaje</b>
+          <b>Agregar tamaño</b>
           <div class="row" style="margin-top:8px">
-            <div><label>Gramaje (g)</label><input v-model.number="nuevo.gramajes.g" type="number"></div>
-            <div><label>Precio</label><input v-model.number="nuevo.gramajes.precio" type="number"></div>
+            <div><label>Id (slug)</label><input v-model="nuevo.tamanos.id" placeholder="ej. mega"></div>
+            <div><label>Nombre</label><input v-model="nuevo.tamanos.nombre"></div>
+            <div><label>Orden</label><input v-model.number="nuevo.tamanos.orden" type="number"></div>
           </div>
-          <div class="acts"><button class="btn sm" @click="agregar('gramajes','g')">Agregar</button></div>
+          <div class="acts"><button class="btn sm" @click="agregar('tamanos','id')">Agregar</button></div>
         </div>
       </div>
 
@@ -254,7 +267,7 @@
             <b>${{ o.total }}</b>
           </div>
           <div class="muted" style="margin-top:4px">
-            Entrega: {{ o.entrega }}<template v-if="o.zona"> · {{ o.zona }}</template> · {{ o.pago }} · {{ o.piezas }} pzas · anticipo ${{ o.anticipo }}
+            Entrega: {{ o.entrega }}<template v-if="o.zona"> · {{ o.zona }}</template><template v-if="o.direccion"> · {{ o.direccion }}</template> · {{ o.pago }} · {{ o.piezas }} pzas · anticipo ${{ o.anticipo }}
           </div>
           <ul class="muted" style="margin:6px 0 0;padding-left:18px">
             <li v-for="(it,i) in o.items" :key="i">{{ it.nombre }} x{{ it.qty }} — ${{ it.importe }}</li>
@@ -281,14 +294,15 @@ const sb = USA_SB ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : nul
 
 createApp({
   setup(){
-    const TABS=[{id:'resumen',label:'Resumen'},{id:'sabores',label:'Sabores'},{id:'combos',label:'Combos'},{id:'extras',label:'Extras'},{id:'gramajes',label:'Gramajes'},{id:'config',label:'Config'},{id:'pedidos',label:'Pedidos'}];
+    const TABS=[{id:'resumen',label:'Resumen'},{id:'sabores',label:'Sabores'},{id:'combos',label:'Combos'},{id:'extras',label:'Extras'},{id:'tamanos',label:'Tamaños'},{id:'config',label:'Config'},{id:'pedidos',label:'Pedidos'}];
     const tab=ref('resumen');
     const sesion=ref(null); const email=ref(''); const password=ref(''); const loginErr=ref('');
     const toast=ref('');
-    const sabores=ref([]), combos=ref([]), extras=ref([]), gramajes=ref([]), pedidos=ref([]);
+    const sabores=ref([]), combos=ref([]), extras=ref([]), tamanos=ref([]), pedidos=ref([]);
+    const preciosMatriz=reactive({});
     const config=reactive({});
     const zonasTexto=ref('');
-    const nuevo=reactive({ sabores:{cat:'salado'}, combos:{}, extras:{cat:'icee'}, gramajes:{} });
+    const nuevo=reactive({ sabores:{cat:'salado'}, combos:{}, extras:{cat:'icee'}, tamanos:{} });
 
     const aviso=(t)=>{ toast.value=t; setTimeout(()=>toast.value='',2200); };
     const fmt=(s)=> s? new Date(s).toLocaleString('es-MX') : '';
@@ -316,13 +330,16 @@ createApp({
 
     async function cargarTodo(){
       const q=(t,ord)=> sb.from(t).select('*').order(ord);
-      const [sa,co,ex,gr,cf,pe]=await Promise.all([
-        q('sabores','orden'), q('combos','orden'), q('extras','orden'), q('gramajes','orden'),
+      const [sa,co,ex,ta,pt,cf,pe]=await Promise.all([
+        q('sabores','orden'), q('combos','orden'), q('extras','orden'), q('tamanos','orden'),
+        sb.from('precios_tamano').select('*'),
         sb.from('config').select('*').single(),
         sb.from('orders').select('*').order('creado',{ascending:false})
       ]);
-      sabores.value=sa.data||[]; combos.value=co.data||[]; extras.value=ex.data||[]; gramajes.value=gr.data||[];
+      sabores.value=sa.data||[]; combos.value=co.data||[]; extras.value=ex.data||[]; tamanos.value=ta.data||[];
       pedidos.value=pe.data||[];
+      Object.keys(preciosMatriz).forEach(k=>delete preciosMatriz[k]);
+      (pt.data||[]).forEach(r=>{ preciosMatriz[r.categoria+':'+r.tamano_id]=Number(r.precio); });
       if(cf.data){ Object.assign(config, cf.data); zonasTexto.value=(cf.data.zonas||[]).join('\n'); }
     }
 
@@ -332,7 +349,7 @@ createApp({
     }
     async function eliminar(tabla, fila, pk='id'){
       const { error } = await sb.from(tabla).delete().eq(pk, fila[pk]);
-      if(!error){ const ref_={sabores,combos,extras,gramajes}[tabla]; ref_.value=ref_.value.filter(x=>x[pk]!==fila[pk]); }
+      if(!error){ const ref_={sabores,combos,extras,tamanos}[tabla]; ref_.value=ref_.value.filter(x=>x[pk]!==fila[pk]); }
       aviso(error? ('Error: '+error.message) : 'Eliminado');
     }
     async function agregar(tabla, pk='id'){
@@ -341,6 +358,17 @@ createApp({
       const { error } = await sb.from(tabla).insert(fila);
       if(!error){ await cargarTodo(); nuevo[tabla]= tabla==='sabores'?{cat:'salado'}:(tabla==='extras'?{cat:'icee'}:{}); }
       aviso(error? ('Error: '+error.message) : 'Agregado');
+    }
+    async function guardarPrecios(){
+      const rows=[];
+      ['salado','dulce','icee'].forEach(cat=>{
+        tamanos.value.forEach(t=>{
+          const v=preciosMatriz[cat+':'+t.id];
+          if(v!=null && v!=='') rows.push({categoria:cat, tamano_id:t.id, precio:v});
+        });
+      });
+      const { error } = await sb.from('precios_tamano').upsert(rows, {onConflict:'categoria,tamano_id'});
+      aviso(error? ('Error: '+error.message) : 'Precios guardados');
     }
     async function guardarConfig(){
       const payload={...config, id:1, zonas: zonasTexto.value.split('\n').map(z=>z.trim()).filter(Boolean)};
@@ -359,8 +387,8 @@ createApp({
     });
 
     return { USA_SB, TABS, tab, sesion, email, password, loginErr, toast, fmt, stats,
-      sabores, combos, extras, gramajes, pedidos, config, zonasTexto, nuevo,
-      login, logout, guardar, eliminar, agregar, guardarConfig, guardarEstatus };
+      sabores, combos, extras, tamanos, preciosMatriz, pedidos, config, zonasTexto, nuevo,
+      login, logout, guardar, eliminar, agregar, guardarPrecios, guardarConfig, guardarEstatus };
   }
 }).mount('#app');
 </script>
