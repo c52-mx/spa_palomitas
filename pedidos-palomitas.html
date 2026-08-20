@@ -164,6 +164,8 @@
   .radio{flex:1; border:1.5px solid var(--papel-linea); background:#fffdf8; border-radius:10px; padding:9px; text-align:center; font-weight:800; font-size:.9rem; cursor:pointer; transition:background .15s, border-color .15s}
   .radio.on{border-color:var(--baya); background:#F6E9DE; color:var(--baya-oscura)}
   .hint{font-size:.8rem; color:var(--tinta-suave); font-weight:600; margin-top:5px}
+  .geo-btn{width:100%; border:1.5px dashed var(--papel-linea); background:#fffdf8; border-radius:10px; padding:9px; font:inherit; font-weight:800; font-size:.85rem; color:var(--tinta-suave); cursor:pointer; transition:background .15s, border-color .15s}
+  .geo-btn:hover{border-color:var(--baya); color:var(--baya-oscura)}
 
   .cta{display:flex; align-items:center; justify-content:center; gap:9px; width:100%; margin-top:16px; background:var(--wa); color:#fff; border:none; border-radius:12px; padding:15px; font-family:"Fredoka"; font-weight:600; font-size:1.06rem; cursor:pointer; transition:background .15s, transform .06s}
   .cta:hover{background:var(--wa-oscura)} .cta:active{transform:scale(.99)}
@@ -309,6 +311,7 @@
             <div class="tot" v-if="esEnvio && R.envioGratis"><span class="muted">Envio</span><span class="incl">incluido</span></div>
             <div class="tot big"><span class="disp">Total</span><span class="disp">${{ R.total }}</span></div>
             <div class="tot anticipo"><span>Anticipo 50%</span><span>${{ R.anticipo }}</span></div>
+            <div class="hint">El anticipo se paga por transferencia; te pasamos los datos por este mismo chat de WhatsApp.</div>
 
             <div class="campo">
               <label for="cliente">Tu nombre</label>
@@ -330,6 +333,8 @@
                 <option v-for="z in CFG.ZONAS" :key="z" :value="z">{{ z }}</option>
               </select>
               <input v-if="esEnvio" v-model="direccion" placeholder="Calle, numero, referencias" style="margin-top:8px">
+              <button v-if="esEnvio" type="button" class="geo-btn" style="margin-top:8px" @click="compartirUbicacion">📍 Compartir mi ubicacion (opcional)</button>
+              <div class="hint" v-if="esEnvio && geoEstado">{{ geoEstado }}</div>
             </div>
             <div class="campo">
               <label>Pago</label>
@@ -407,11 +412,12 @@ function construirMensaje(p){
   L.push('🍿 Nuevo pedido - '+p.negocio,'');
   L.push('*Cliente:* '+p.cliente,'*Fecha:* '+p.fechaTexto,'*Entrega:* '+p.entregaTexto);
   if(p.esEnvio && p.direccion) L.push('*Direccion:* '+p.direccion);
+  if(p.esEnvio && p.ubicacion) L.push('*Ubicacion (mapa):* '+p.ubicacion);
   L.push('','*Pedido:*');
   for(const it of p.items){ L.push('- '+it.nombre+' x'+it.qty+' - $'+it.importe); if(it.comboHint) L.push('   ('+it.comboHint+')'); }
   L.push('','*Piezas:* '+p.piezas,'*Subtotal:* $'+p.subtotal);
   if(p.envio>0) L.push('*Envio:* $'+p.envio); else if(p.esEnvio && p.envioGratis) L.push('*Envio:* incluido');
-  L.push('*Total:* $'+p.total,'*Anticipo 50%:* $'+p.anticipo,'','*Pago:* '+p.pago);
+  L.push('*Total:* $'+p.total,'*Anticipo 50%:* $'+p.anticipo+' (por transferencia, te pasamos los datos por aqui)','','*Pago:* '+p.pago);
   if(p.notas) L.push('*Notas:* '+p.notas);
   return L.join('\n');
 }
@@ -424,8 +430,8 @@ createApp({
       NEGOCIO: 'Las Palomitas de los Abuelos',
       WHATSAPP_NUMERO: '525566707620',
       PEDIDO_MINIMO: 5, ANTICIPACION_DIAS: 1, TOPE_POR_SABOR: 10,
-      COSTO_ENVIO: 30, ANTICIPO_PCT: 0.5, HORA_ABRE: 10, HORA_CIERRA: 22,
-      HORARIO: '10:00 a 22:00 h',
+      COSTO_ENVIO: 30, ANTICIPO_PCT: 0.5, HORA_ABRE: 10, HORA_CIERRA: 18,
+      HORARIO: '10:00 a 18:00 h',
       TAMANOS: [ {id:'chica',nombre:'Chica',orden:1}, {id:'mediana',nombre:'Mediana',orden:2}, {id:'grande',nombre:'Grande',orden:3}, {id:'extra_grande',nombre:'Extra grande',orden:4} ],
       PRECIOS_TAMANO: [
         {categoria:'salado', tamano_id:'chica', precio:15}, {categoria:'salado', tamano_id:'mediana', precio:25}, {categoria:'salado', tamano_id:'grande', precio:45}, {categoria:'salado', tamano_id:'extra_grande', precio:60},
@@ -463,9 +469,9 @@ createApp({
       { id:'iceecombinada', nombre:'Icee combinada', cat:'icee', icon:'🌈' }
     ]);
     const combos = ref([
-      { id:'combo-degustacion', nombre:'Pack Degustacion', desc:'4 sabores de 150 g a elegir', precio:299, icon:'🎁', badge:'Envio incluido', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 4 sabores en Notas' },
-      { id:'combo-fiesta', nombre:'Pack Fiesta', desc:'6 sabores de 200 g a elegir', precio:549, icon:'🎉', badge:'Para compartir', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 6 sabores en Notas' },
-      { id:'combo-cine', nombre:'Combo Cine', desc:'2 palomitas 100 g + 2 refrescos', precio:175, icon:'🎬', tipo:'combo', comboHint:'Indica sabores y refrescos en Notas' }
+      { id:'combo-degustacion', nombre:'Pack Degustacion', desc:'4 sabores tamano Grande a elegir', precio:299, icon:'🎁', badge:'Envio incluido', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 4 sabores en Notas' },
+      { id:'combo-fiesta', nombre:'Pack Fiesta', desc:'6 sabores tamano Grande a elegir', precio:549, icon:'🎉', badge:'Para compartir', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 6 sabores en Notas' },
+      { id:'combo-cine', nombre:'Combo Cine', desc:'2 palomitas tamano Mediana + 2 refrescos', precio:175, icon:'🎬', tipo:'combo', comboHint:'Indica sabores y refrescos en Notas' }
     ]);
     const extras = ref([
       { id:'ex-refresco', nombre:'Refresco en lata 355 ml', desc:'Cola, sabores o light', precio:28, icon:'🥤', cat:'icee', tipo:'extra' },
@@ -483,6 +489,8 @@ createApp({
     const entrega = ref('pickup');
     const zona = ref(CFG.ZONAS[0]);
     const direccion = ref('');
+    const ubicacion = ref('');
+    const geoEstado = ref('');
     const pago = ref('efectivo');
     const notas = ref('');
 
@@ -515,6 +523,20 @@ createApp({
       if(esEnvio.value && !direccion.value.trim()) return 'Escribe la direccion de entrega.';
       return '';
     });
+
+    function compartirUbicacion(){
+      if(!navigator.geolocation){ geoEstado.value='Tu navegador no soporta ubicacion. Escribe la direccion.'; return; }
+      geoEstado.value='Obteniendo tu ubicacion...';
+      navigator.geolocation.getCurrentPosition(
+        pos=>{
+          const {latitude,longitude}=pos.coords;
+          ubicacion.value='https://www.google.com/maps?q='+latitude+','+longitude;
+          geoEstado.value='Listo, se agrego tu ubicacion en el mapa.';
+        },
+        ()=>{ geoEstado.value='No se pudo obtener tu ubicacion. Escribe la direccion arriba.'; },
+        { enableHighAccuracy:true, timeout:10000 }
+      );
+    }
 
     /* ===== Carga del catalogo en vivo desde Supabase ===== */
     const disp = r => r.disponible!==false && (r.stock==null || r.stock>0);
@@ -561,7 +583,8 @@ createApp({
       const msg = construirMensaje({
         negocio:CFG.NEGOCIO, cliente:cliente.value.trim(), fechaTexto:fechaTexto.value, entregaTexto:entregaTxt,
         items:res.items, piezas:res.piezas, subtotal:res.subtotal, envio:res.envio, envioGratis:envGratis, esEnvio:esEnv,
-        total:res.total, anticipo:res.anticipo, pago:pagoTexto.value, notas:notas.value.trim(), direccion:direccion.value.trim()
+        total:res.total, anticipo:res.anticipo, pago:pagoTexto.value, notas:notas.value.trim(),
+        direccion:direccion.value.trim(), ubicacion:ubicacion.value
       });
       window.open(waUrl(CFG.WHATSAPP_NUMERO, msg), '_blank');
     }
@@ -576,7 +599,8 @@ createApp({
             p_cliente:cliente.value.trim(), p_fecha:fecha.value, p_entrega:entrega.value,
             p_zona: esEnvio.value?zona.value:null, p_pago:pagoTexto.value,
             p_items: r.items.map(i=>({key:i.key, qty:i.qty})), p_notas:notas.value.trim(),
-            p_direccion: esEnvio.value?direccion.value.trim():null
+            p_direccion: esEnvio.value?direccion.value.trim():null,
+            p_ubicacion: esEnvio.value?(ubicacion.value||null):null
           });
           if(error) throw error;
           abrirWhatsApp(data);           // totales calculados por el servidor
@@ -588,8 +612,8 @@ createApp({
       abrirWhatsApp(r);                    // modo local (sin backend)
     };
 
-    return { CFG, categorias, sabores, combos, extras, cargando, enviando, seleccion, cliente, fecha, minFecha, entrega, zona, direccion, pago, notas,
-      abierto, keyPop, cant, add, sub, tallaDe, setTalla, precioTalla, tallaNombre, porCat, R, esEnvio, puedeEnviar, aviso, confirmar };
+    return { CFG, categorias, sabores, combos, extras, cargando, enviando, seleccion, cliente, fecha, minFecha, entrega, zona, direccion, ubicacion, geoEstado, pago, notas,
+      abierto, keyPop, cant, add, sub, tallaDe, setTalla, precioTalla, tallaNombre, porCat, R, esEnvio, puedeEnviar, aviso, confirmar, compartirUbicacion };
   }
 }).mount('#app');
 </script>

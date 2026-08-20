@@ -267,7 +267,7 @@
             <b>${{ o.total }}</b>
           </div>
           <div class="muted" style="margin-top:4px">
-            Entrega: {{ o.entrega }}<template v-if="o.zona"> · {{ o.zona }}</template><template v-if="o.direccion"> · {{ o.direccion }}</template> · {{ o.pago }} · {{ o.piezas }} pzas · anticipo ${{ o.anticipo }}
+            Entrega: {{ o.entrega }}<template v-if="o.zona"> · {{ o.zona }}</template><template v-if="o.direccion"> · {{ o.direccion }}</template><template v-if="o.ubicacion"> · <a :href="o.ubicacion" target="_blank" rel="noopener">Ver ubicacion</a></template> · {{ o.pago }} · {{ o.piezas }} pzas · anticipo ${{ o.anticipo }}
           </div>
           <ul class="muted" style="margin:6px 0 0;padding-left:18px">
             <li v-for="(it,i) in o.items" :key="i">{{ it.nombre }} x{{ it.qty }} — ${{ it.importe }}</li>

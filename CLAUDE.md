@@ -65,10 +65,12 @@ panel muestra una pantalla de "falta configurar".
 - **combos** (`id`, nombre, descripcion, precio, icon, badge, combo_hint, envio_incluido,
   disponible, stock, orden).
 - **extras** (`id`, nombre, descripcion, precio, icon, cat, disponible, stock, orden).
-- **orders** (`id` uuid, creado, cliente, fecha_entrega, entrega, zona, direccion, pago,
+- **orders** (`id` uuid, creado, cliente, fecha_entrega, entrega, zona, direccion, ubicacion, pago,
   items jsonb, piezas, subtotal, envio, total, anticipo, notas,
   estatus `pendiente|confirmado|entregado|cancelado`). `direccion` es texto libre (sin API de
-  mapas/geocoding), solo se llena cuando `entrega = envio`.
+  mapas/geocoding); `ubicacion` es un link de Google Maps armado con la Geolocation nativa del
+  navegador (sin API de terceros ni costo, requiere permiso del cliente). Ambos solo se llenan
+  cuando `entrega = envio`.
 
 **Claves compuestas del carrito:** las palomitas se identifican como `"<saborId>:<tamanoId>"`
 (ej. `queso:grande`); combos y extras usan su `id` directo. `items` en `orders` guarda
@@ -81,7 +83,8 @@ panel muestra una pantalla de "falta configurar".
 - **Zonas de envío:** Zona Héroes 1–6, Tecámac, Ojo de Agua (cobertura parcial). **Envío $30**;
   pickup con indicaciones por WhatsApp.
 - **Reglas:** pedido mínimo **5 paquetes de palomitas o un combo**; anticipación mínima **1 día**;
-  tope **10 por sabor y tamaño** (más = pedido especial); **anticipo 50%**; horario **10–22 h**.
+  tope **10 por sabor y tamaño** (más = pedido especial); **anticipo 50%** (por transferencia,
+  datos se comparten por WhatsApp al confirmar); horario **10–18 h**.
 - **Pago:** efectivo o transferencia.
 
 **Precios por tamaño y categoría** (decisión del negocio; el margen queda por debajo del ~70%
@@ -97,8 +100,10 @@ histórico en tamaños chicos — se avisó y se dejó así a propósito):
 Icees usa la misma tabla que dulces. No se muestra el peso en gramos en la UI (solo el nombre
 del tamaño), aunque cada tamaño puede llevar un peso de referencia interno para control de costos.
 
-**Combos:** Pack Degustación $299 (4×150 g, envío incluido) · Pack Fiesta $549 (6×200 g, envío
-incluido) · Combo Cine $175 (2×100 g + 2 refrescos).
+**Combos:** Pack Degustación $299 (4 sabores tamaño Grande a elegir, envío incluido) · Pack
+Fiesta $549 (6 sabores tamaño Grande a elegir, envío incluido) · Combo Cine $175 (2 palomitas
+tamaño Mediana + 2 refrescos). El mapeo de tamaño de cada combo es un supuesto razonable tras
+quitar los gramajes — confirmar con el negocio si no cuadra con la porción real que se sirve.
 **Extras:** Refresco lata 355 ml $28 · Agua 600 ml $18 · Dulces surtidos $35.
 **Sabores (20):** salados (Naturales/saladas, Queso, Rufles, Mantequilla, Doritos rojos, Takis,
 Cremas y especias, Chile y limón, Esquites), dulces (Caramelo, Chocolate, Galleta Oreo,
@@ -107,7 +112,8 @@ Queso-caramelo, Mora azul, Uva, Sandía, Picafresa) e icees (Azul, Rojo, Combina
 ## 6. Flujo del pedido
 
 1. Cliente arma la comanda (sabor + tamaño, combos, extras), fecha (selector bloquea antes del
-   mínimo de anticipación), entrega (pickup/envío + zona + dirección si es envío), pago, notas.
+   mínimo de anticipación), entrega (pickup/envío + zona + dirección si es envío, con botón
+   opcional de "Compartir mi ubicación" vía Geolocation del navegador), pago, notas.
 2. Validaciones de UI: mínimo, tope por línea, nombre y fecha obligatorios.
 3. Al confirmar, **si hay Supabase**: `sb.rpc('crear_pedido', { p_items:[{key,qty}], ... })`.
    La función recalcula todo desde el catálogo, valida y **registra** el pedido en `orders`.
@@ -125,12 +131,12 @@ Queso-caramelo, Mora azul, Uva, Sandía, Picafresa) e icees (Azul, Rojo, Combina
 
 ## 8. Función `crear_pedido` (validación de costos)
 
-`crear_pedido(p_cliente, p_fecha, p_entrega, p_zona, p_pago, p_items jsonb, p_notas, p_direccion default null) → jsonb`
+`crear_pedido(p_cliente, p_fecha, p_entrega, p_zona, p_pago, p_items jsonb, p_notas, p_direccion default null, p_ubicacion default null) → jsonb`
 
 - Recorre `p_items` (solo `key`+`qty`; **ignora cualquier precio del cliente**).
 - Resuelve cada `key`: `sabor:tamano` → toma la `cat` del sabor y busca el precio en
   `precios_tamano` cruzando `categoria` + `tamano_id`; si no, busca en combos y luego en extras.
-- `p_direccion` solo se guarda cuando `p_entrega = 'envio'`.
+- `p_direccion` y `p_ubicacion` solo se guardan cuando `p_entrega = 'envio'`.
 - Valida: producto existe, `disponible`, `stock` suficiente, y **pedido mínimo** (5 palomitas o combo).
 - Calcula subtotal, envío (0 si combo con `envio_incluido`), total y anticipo desde `config`.
 - Inserta en `orders` y devuelve `{order_id, items, piezas, subtotal, envio, envio_gratis, total, anticipo, es_envio}`.
