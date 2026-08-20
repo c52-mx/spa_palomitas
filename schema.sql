@@ -15,8 +15,8 @@ create table if not exists config (
   costo_envio       numeric default 30,
   anticipo_pct      numeric default 0.5,
   hora_abre         int     default 10,
-  hora_cierra       int     default 22,
-  horario           text    default '10:00 a 22:00 h',
+  hora_cierra       int     default 18,
+  horario           text    default '10:00 a 18:00 h',
   zonas             jsonb   default '[]'::jsonb,
   constraint config_single check (id = 1)
 );
@@ -88,6 +88,7 @@ create table if not exists orders (
   anticipo      numeric,
   notas         text,
   direccion     text,
+  ubicacion     text,                      -- link de Google Maps (Geolocation del navegador, opcional)
   estatus       text default 'pendiente'   -- pendiente | confirmado | entregado | cancelado
 );
 
@@ -165,9 +166,9 @@ insert into sabores (id,nombre,cat,icon,badge,orden) values
 on conflict (id) do nothing;
 
 insert into combos (id,nombre,descripcion,precio,icon,badge,combo_hint,envio_incluido,orden) values
-  ('combo-degustacion','Pack Degustacion','4 sabores de 150 g a elegir',299,'🎁','Envio incluido','Indica tus 4 sabores en Notas',true,1),
-  ('combo-fiesta','Pack Fiesta','6 sabores de 200 g a elegir',549,'🎉','Para compartir','Indica tus 6 sabores en Notas',true,2),
-  ('combo-cine','Combo Cine','2 palomitas 100 g + 2 refrescos',175,'🎬',null,'Indica sabores y refrescos en Notas',false,3)
+  ('combo-degustacion','Pack Degustacion','4 sabores tamano Grande a elegir',299,'🎁','Envio incluido','Indica tus 4 sabores en Notas',true,1),
+  ('combo-fiesta','Pack Fiesta','6 sabores tamano Grande a elegir',549,'🎉','Para compartir','Indica tus 6 sabores en Notas',true,2),
+  ('combo-cine','Combo Cine','2 palomitas tamano Mediana + 2 refrescos',175,'🎬',null,'Indica sabores y refrescos en Notas',false,3)
 on conflict (id) do nothing;
 
 insert into extras (id,nombre,descripcion,precio,icon,cat,orden) values
@@ -183,10 +184,11 @@ on conflict (id) do nothing;
 -- ============================================================
 drop policy if exists "orders_insert" on orders;  -- ya no se inserta directo; solo via funcion
 drop function if exists crear_pedido(text,date,text,text,text,jsonb,text);
+drop function if exists crear_pedido(text,date,text,text,text,jsonb,text,text);
 
 create or replace function crear_pedido(
   p_cliente text, p_fecha date, p_entrega text, p_zona text, p_pago text,
-  p_items jsonb, p_notas text, p_direccion text default null
+  p_items jsonb, p_notas text, p_direccion text default null, p_ubicacion text default null
 ) returns jsonb
 language plpgsql
 security definer
@@ -251,13 +253,15 @@ begin
   total    := subtotal + envio;
   anticipo := round(total * cfg.anticipo_pct);
 
-  insert into orders (cliente,fecha_entrega,entrega,zona,pago,items,piezas,subtotal,envio,total,anticipo,notas,direccion,estatus)
+  insert into orders (cliente,fecha_entrega,entrega,zona,pago,items,piezas,subtotal,envio,total,anticipo,notas,direccion,ubicacion,estatus)
   values (p_cliente, p_fecha, p_entrega, case when es_envio then p_zona else null end, p_pago, arr,
-          piezas, subtotal, envio, total, anticipo, p_notas, case when es_envio then p_direccion else null end, 'pendiente')
+          piezas, subtotal, envio, total, anticipo, p_notas,
+          case when es_envio then p_direccion else null end,
+          case when es_envio then p_ubicacion else null end, 'pendiente')
   returning id into new_id;
 
   return jsonb_build_object('order_id',new_id,'items',arr,'piezas',piezas,'subtotal',subtotal,
     'envio',envio,'envio_gratis',envio_gratis,'total',total,'anticipo',anticipo,'es_envio',es_envio);
 end $$;
 
-grant execute on function crear_pedido(text,date,text,text,text,jsonb,text,text) to anon, authenticated;
+grant execute on function crear_pedido(text,date,text,text,text,jsonb,text,text,text) to anon, authenticated;
