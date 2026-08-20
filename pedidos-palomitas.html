@@ -218,7 +218,7 @@
     <div class="grid">
       <main>
         <h2 class="sec">Nuestros sabores</h2>
-        <p class="sec-nota">Elige gramaje en cada sabor. Hasta {{ CFG.TOPE_POR_SABOR }} por sabor y tamaño; mas es pedido especial.</p>
+        <p class="sec-nota">Elige el tamaño en cada sabor. Hasta {{ CFG.TOPE_POR_SABOR }} por sabor y tamaño; mas es pedido especial.</p>
 
         <template v-for="cat in categorias" :key="cat.id">
           <div class="cat" :class="cat.id"><span class="dot"></span>{{ cat.nombre }}</div>
@@ -231,9 +231,9 @@
               </div>
               <div class="nom">{{ s.nombre }}</div>
               <div class="tallas">
-                <button v-for="gr in CFG.GRAMAJES" :key="gr.g" :class="{on: tallaDe(s.id)===gr.g}" @click="setTalla(s.id, gr.g)">{{ gr.g }}g</button>
+                <button v-for="t in CFG.TAMANOS" :key="t.id" :class="{on: tallaDe(s.id)===t.id}" @click="setTalla(s.id, t.id)">{{ t.nombre }}</button>
               </div>
-              <div class="precio"><b>${{ precioTalla(s.id) }}</b> / {{ tallaDe(s.id) }}g</div>
+              <div class="precio"><b>${{ precioTalla(s.id) }}</b> / {{ tallaNombre(tallaDe(s.id)) }}</div>
               <div class="step">
                 <button class="menos" @click="sub(keyPop(s.id, tallaDe(s.id)))" :disabled="cant(keyPop(s.id, tallaDe(s.id)))===0" aria-label="Quitar uno">&minus;</button>
                 <div class="q" aria-live="polite">{{ cant(keyPop(s.id, tallaDe(s.id))) }}</div>
@@ -329,6 +329,7 @@
               <select v-if="esEnvio" v-model="zona" style="margin-top:8px">
                 <option v-for="z in CFG.ZONAS" :key="z" :value="z">{{ z }}</option>
               </select>
+              <input v-if="esEnvio" v-model="direccion" placeholder="Calle, numero, referencias" style="margin-top:8px">
             </div>
             <div class="campo">
               <label>Pago</label>
@@ -369,15 +370,20 @@ const sb = USA_SB ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : nul
 function isoLocal(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
 function minFechaISO(hoy, dias){ return isoLocal(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()+dias)); }
 function nombreDia(iso){ const p=iso.split('-').map(Number); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('es-MX',{weekday:'long', day:'numeric', month:'long'}); }
-function parseKey(key){ const i=key.indexOf(':'); return i<0?{id:key,g:null}:{id:key.slice(0,i), g:Number(key.slice(i+1))}; }
-function keyPop(id,g){ return id+':'+g; }
-function makeResolver(sabores, gramajes, combos, extras){
+function parseKey(key){ const i=key.indexOf(':'); return i<0?{id:key,tam:null}:{id:key.slice(0,i), tam:key.slice(i+1)}; }
+function keyPop(id,tam){ return id+':'+tam; }
+function precioMapDe(tamanos, preciosTamano){
+  const tn={}; tamanos.forEach(t=>tn[t.id]=t.nombre);
+  const m={}; preciosTamano.forEach(p=>{ m[p.categoria+':'+p.tamano_id]={precio:Number(p.precio), nombreTam:tn[p.tamano_id]||p.tamano_id}; });
+  return m;
+}
+function makeResolver(sabores, precioMap, combos, extras){
   const byId={}; [...combos,...extras].forEach(x=>byId[x.id]=x);
   const sab={}; sabores.forEach(s=>sab[s.id]=s);
-  const gp={}; gramajes.forEach(gr=>gp[gr.g]=gr.precio);
   return function(key){
-    const {id,g}=parseKey(key);
-    if(g!=null){ const s=sab[id]; if(!s) return null; return {nombre:s.nombre+' '+g+'g', precio:gp[g], tipo:'palomita'}; }
+    const {id,tam}=parseKey(key);
+    if(tam!=null){ const s=sab[id]; if(!s) return null; const p=precioMap[s.cat+':'+tam]; if(!p) return null;
+      return {nombre:s.nombre+' '+p.nombreTam, precio:p.precio, tipo:'palomita'}; }
     const x=byId[id]; if(!x) return null;
     return {nombre:x.nombre, precio:x.precio, tipo:x.tipo||'extra', envioIncluido:!!x.envioIncluido, comboHint:x.comboHint};
   };
@@ -399,7 +405,9 @@ function resumen(sel, resolver, costoEnvio, esEnvio, anticipoPct){
 function construirMensaje(p){
   const L=[];
   L.push('🍿 Nuevo pedido - '+p.negocio,'');
-  L.push('*Cliente:* '+p.cliente,'*Fecha:* '+p.fechaTexto,'*Entrega:* '+p.entregaTexto,'','*Pedido:*');
+  L.push('*Cliente:* '+p.cliente,'*Fecha:* '+p.fechaTexto,'*Entrega:* '+p.entregaTexto);
+  if(p.esEnvio && p.direccion) L.push('*Direccion:* '+p.direccion);
+  L.push('','*Pedido:*');
   for(const it of p.items){ L.push('- '+it.nombre+' x'+it.qty+' - $'+it.importe); if(it.comboHint) L.push('   ('+it.comboHint+')'); }
   L.push('','*Piezas:* '+p.piezas,'*Subtotal:* $'+p.subtotal);
   if(p.envio>0) L.push('*Envio:* $'+p.envio); else if(p.esEnvio && p.envioGratis) L.push('*Envio:* incluido');
@@ -418,10 +426,15 @@ createApp({
       PEDIDO_MINIMO: 5, ANTICIPACION_DIAS: 1, TOPE_POR_SABOR: 10,
       COSTO_ENVIO: 30, ANTICIPO_PCT: 0.5, HORA_ABRE: 10, HORA_CIERRA: 22,
       HORARIO: '10:00 a 22:00 h',
-      GRAMAJES: [ {g:50,precio:35}, {g:100,precio:59}, {g:150,precio:79}, {g:200,precio:99}, {g:300,precio:135} ],
+      TAMANOS: [ {id:'chica',nombre:'Chica',orden:1}, {id:'mediana',nombre:'Mediana',orden:2}, {id:'grande',nombre:'Grande',orden:3}, {id:'extra_grande',nombre:'Extra grande',orden:4} ],
+      PRECIOS_TAMANO: [
+        {categoria:'salado', tamano_id:'chica', precio:15}, {categoria:'salado', tamano_id:'mediana', precio:25}, {categoria:'salado', tamano_id:'grande', precio:45}, {categoria:'salado', tamano_id:'extra_grande', precio:60},
+        {categoria:'dulce',  tamano_id:'chica', precio:25}, {categoria:'dulce',  tamano_id:'mediana', precio:35}, {categoria:'dulce',  tamano_id:'grande', precio:55}, {categoria:'dulce',  tamano_id:'extra_grande', precio:80},
+        {categoria:'icee',   tamano_id:'chica', precio:25}, {categoria:'icee',   tamano_id:'mediana', precio:35}, {categoria:'icee',   tamano_id:'grande', precio:55}, {categoria:'icee',   tamano_id:'extra_grande', precio:80}
+      ],
       ZONAS: ['Zona Heroes 1','Zona Heroes 2','Zona Heroes 3','Zona Heroes 4','Zona Heroes 5','Zona Heroes 6','Tecamac','Ojo de Agua (cobertura parcial)']
     });
-    const TALLA_DEFAULT = 100;
+    const TALLA_DEFAULT = 'mediana';
     const categorias = [
       { id:'salado', nombre:'Saladas y clasicas' },
       { id:'dulce',  nombre:'Dulces' },
@@ -469,6 +482,7 @@ createApp({
     const fecha = ref(minFecha.value);
     const entrega = ref('pickup');
     const zona = ref(CFG.ZONAS[0]);
+    const direccion = ref('');
     const pago = ref('efectivo');
     const notas = ref('');
 
@@ -476,16 +490,18 @@ createApp({
     const add = key => { const n=cant(key); if(n<CFG.TOPE_POR_SABOR+10) seleccion[key]=n+1; };
     const sub = key => { const n=cant(key); if(n>0) seleccion[key]=n-1; };
     const tallaDe = id => tallas[id] || TALLA_DEFAULT;
-    const setTalla = (id,g) => { tallas[id]=g; };
-    const precioTalla = id => { const gr=CFG.GRAMAJES.find(x=>x.g===tallaDe(id)); return gr?gr.precio:0; };
+    const setTalla = (id,tam) => { tallas[id]=tam; };
+    const precioMap = computed(()=> precioMapDe(CFG.TAMANOS, CFG.PRECIOS_TAMANO));
+    const precioTalla = id => { const s=sabores.value.find(x=>x.id===id); if(!s) return 0; const p=precioMap.value[s.cat+':'+tallaDe(id)]; return p?p.precio:0; };
+    const tallaNombre = tam => (CFG.TAMANOS.find(t=>t.id===tam)||{}).nombre || tam;
     const porCat = c => sabores.value.filter(s=>s.cat===c);
 
-    const resolver = computed(()=> makeResolver(sabores.value, CFG.GRAMAJES, combos.value, extras.value));
+    const resolver = computed(()=> makeResolver(sabores.value, precioMap.value, combos.value, extras.value));
     const esEnvio = computed(()=> entrega.value==='envio');
     const R = computed(()=> resumen(seleccion, resolver.value, CFG.COSTO_ENVIO, esEnvio.value, CFG.ANTICIPO_PCT));
     const abierto = computed(()=>{ const h=new Date().getHours(); return h>=CFG.HORA_ABRE && h<CFG.HORA_CIERRA; });
     const cumpleMinimo = computed(()=> R.value.unidadesPal>=CFG.PEDIDO_MINIMO || R.value.hayCombo);
-    const puedeEnviar = computed(()=> cumpleMinimo.value && !!cliente.value.trim() && !!fecha.value);
+    const puedeEnviar = computed(()=> cumpleMinimo.value && !!cliente.value.trim() && !!fecha.value && (!esEnvio.value || !!direccion.value.trim()));
     const fechaTexto = computed(()=> fecha.value ? nombreDia(fecha.value) : '');
     const entregaTexto = computed(()=>{
       if(!esEnvio.value) return 'Pickup (indicaciones por WhatsApp)';
@@ -496,6 +512,7 @@ createApp({
       if(!cumpleMinimo.value){ const f=CFG.PEDIDO_MINIMO-R.value.unidadesPal; return 'Agrega '+f+' paquete'+(f===1?'':'s')+' de palomitas (min '+CFG.PEDIDO_MINIMO+') o elige un combo.'; }
       if(!cliente.value.trim()) return 'Escribe tu nombre para continuar.';
       if(!fecha.value) return 'Elige la fecha de entrega.';
+      if(esEnvio.value && !direccion.value.trim()) return 'Escribe la direccion de entrega.';
       return '';
     });
 
@@ -508,9 +525,10 @@ createApp({
       if(!sb) return;
       cargando.value = true;
       try{
-        const [cf,gr,sa,co,ex] = await Promise.all([
+        const [cf,ta,pt,sa,co,ex] = await Promise.all([
           sb.from('config').select('*').single(),
-          sb.from('gramajes').select('*').order('orden'),
+          sb.from('tamanos').select('*').order('orden'),
+          sb.from('precios_tamano').select('*'),
           sb.from('sabores').select('*').order('orden'),
           sb.from('combos').select('*').order('orden'),
           sb.from('extras').select('*').order('orden')
@@ -523,7 +541,8 @@ createApp({
           CFG.HORA_ABRE=c.hora_abre; CFG.HORA_CIERRA=c.hora_cierra; CFG.HORARIO=c.horario;
           if(c.zonas) CFG.ZONAS=Array.isArray(c.zonas)?c.zonas:c.zonas;
         }
-        if(gr.data && gr.data.length) CFG.GRAMAJES=gr.data.map(x=>({g:x.g, precio:Number(x.precio)}));
+        if(ta.data && ta.data.length) CFG.TAMANOS=ta.data.map(x=>({id:x.id, nombre:x.nombre, orden:x.orden}));
+        if(pt.data && pt.data.length) CFG.PRECIOS_TAMANO=pt.data.map(x=>({categoria:x.categoria, tamano_id:x.tamano_id, precio:Number(x.precio)}));
         if(sa.data) sabores.value=sa.data.filter(disp).map(mapSabor);
         if(co.data) combos.value=co.data.filter(disp).map(mapCombo);
         if(ex.data) extras.value=ex.data.filter(disp).map(mapExtra);
@@ -542,7 +561,7 @@ createApp({
       const msg = construirMensaje({
         negocio:CFG.NEGOCIO, cliente:cliente.value.trim(), fechaTexto:fechaTexto.value, entregaTexto:entregaTxt,
         items:res.items, piezas:res.piezas, subtotal:res.subtotal, envio:res.envio, envioGratis:envGratis, esEnvio:esEnv,
-        total:res.total, anticipo:res.anticipo, pago:pagoTexto.value, notas:notas.value.trim()
+        total:res.total, anticipo:res.anticipo, pago:pagoTexto.value, notas:notas.value.trim(), direccion:direccion.value.trim()
       });
       window.open(waUrl(CFG.WHATSAPP_NUMERO, msg), '_blank');
     }
@@ -556,7 +575,8 @@ createApp({
           const { data, error } = await sb.rpc('crear_pedido', {
             p_cliente:cliente.value.trim(), p_fecha:fecha.value, p_entrega:entrega.value,
             p_zona: esEnvio.value?zona.value:null, p_pago:pagoTexto.value,
-            p_items: r.items.map(i=>({key:i.key, qty:i.qty})), p_notas:notas.value.trim()
+            p_items: r.items.map(i=>({key:i.key, qty:i.qty})), p_notas:notas.value.trim(),
+            p_direccion: esEnvio.value?direccion.value.trim():null
           });
           if(error) throw error;
           abrirWhatsApp(data);           // totales calculados por el servidor
@@ -568,8 +588,8 @@ createApp({
       abrirWhatsApp(r);                    // modo local (sin backend)
     };
 
-    return { CFG, categorias, sabores, combos, extras, cargando, enviando, seleccion, cliente, fecha, minFecha, entrega, zona, pago, notas,
-      abierto, keyPop, cant, add, sub, tallaDe, setTalla, precioTalla, porCat, R, esEnvio, puedeEnviar, aviso, confirmar };
+    return { CFG, categorias, sabores, combos, extras, cargando, enviando, seleccion, cliente, fecha, minFecha, entrega, zona, direccion, pago, notas,
+      abierto, keyPop, cant, add, sub, tallaDe, setTalla, precioTalla, tallaNombre, porCat, R, esEnvio, puedeEnviar, aviso, confirmar };
   }
 }).mount('#app');
 </script>
