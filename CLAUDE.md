@@ -79,8 +79,8 @@ panel muestra una pantalla de "falta configurar".
 ## 5. Catálogo y configuración de negocio (valores actuales)
 
 - **Marca:** "Las Palomitas de los Abuelos" — *Sabor artesanal sobre pedido · Por gramo y con amor*.
-- **WhatsApp:** `525566707620` (52 + 10 dígitos). Si no llegan mensajes, probar `5215566707620`.
-- **Zonas de envío:** Zona Héroes 1–6, Tecámac, Ojo de Agua (cobertura parcial). **Envío $30**;
+- **WhatsApp:** `525538010548` (52 + 10 dígitos). Si no llegan mensajes, probar `5215538010548`.
+- **Zonas de envío:** Zona Héroes 5–6, Tecámac, Ojo de Agua (cobertura parcial). **Envío $30**;
   pickup con indicaciones por WhatsApp.
 - **Reglas:** pedido mínimo **5 paquetes de palomitas o un combo**; anticipación mínima **1 día**;
   tope **10 por sabor y tamaño** (más = pedido especial); **anticipo 50%** (por transferencia,
@@ -100,10 +100,12 @@ histórico en tamaños chicos — se avisó y se dejó así a propósito):
 Icees usa la misma tabla que dulces. No se muestra el peso en gramos en la UI (solo el nombre
 del tamaño), aunque cada tamaño puede llevar un peso de referencia interno para control de costos.
 
-**Combos:** Pack Degustación $299 (4 sabores tamaño Grande a elegir, envío incluido) · Pack
-Fiesta $549 (6 sabores tamaño Grande a elegir, envío incluido) · Combo Cine $175 (2 palomitas
-tamaño Mediana + 2 refrescos). El mapeo de tamaño de cada combo es un supuesto razonable tras
-quitar los gramajes — confirmar con el negocio si no cuadra con la porción real que se sirve.
+**Combos:** Pack Degustación $179 (4 sabores tamaño Grande a elegir, envío incluido) · Pack
+Fiesta $259 (6 sabores tamaño Grande a elegir, envío incluido) · Combo Cine $99 (2 palomitas
+tamaño Mediana + 2 refrescos). Precios recalculados para que el combo sea más barato que comprar
+las piezas por separado (~15-20% de ahorro); el mapeo de tamaño de cada combo es un supuesto
+razonable tras quitar los gramajes — confirmar con el negocio si no cuadra con la porción real
+que se sirve.
 **Extras:** Refresco lata 355 ml $28 · Agua 600 ml $18 · Dulces surtidos $35.
 **Sabores (20):** salados (Naturales/saladas, Queso, Rufles, Mantequilla, Doritos rojos, Takis,
 Cremas y especias, Chile y limón, Esquites), dulces (Caramelo, Chocolate, Galleta Oreo,

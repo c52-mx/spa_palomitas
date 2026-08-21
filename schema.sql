@@ -122,8 +122,8 @@ create policy "orders_update" on orders for update to authenticated using (true)
 
 -- ---------- SEED (catalogo actual) ----------
 insert into config (id, negocio, whatsapp_numero, zonas) values
-  (1, 'Las Palomitas de los Abuelos', '525566707620',
-   '["Zona Heroes 1","Zona Heroes 2","Zona Heroes 3","Zona Heroes 4","Zona Heroes 5","Zona Heroes 6","Tecamac","Ojo de Agua (cobertura parcial)"]'::jsonb)
+  (1, 'Las Palomitas de los Abuelos', '525538010548',
+   '["Zona Heroes 5","Zona Heroes 6","Tecamac","Ojo de Agua (cobertura parcial)"]'::jsonb)
 on conflict (id) do nothing;
 
 -- migracion desde el modelo anterior por gramaje, si existia en una corrida previa
@@ -166,9 +166,9 @@ insert into sabores (id,nombre,cat,icon,badge,orden) values
 on conflict (id) do nothing;
 
 insert into combos (id,nombre,descripcion,precio,icon,badge,combo_hint,envio_incluido,orden) values
-  ('combo-degustacion','Pack Degustacion','4 sabores tamano Grande a elegir',299,'🎁','Envio incluido','Indica tus 4 sabores en Notas',true,1),
-  ('combo-fiesta','Pack Fiesta','6 sabores tamano Grande a elegir',549,'🎉','Para compartir','Indica tus 6 sabores en Notas',true,2),
-  ('combo-cine','Combo Cine','2 palomitas tamano Mediana + 2 refrescos',175,'🎬',null,'Indica sabores y refrescos en Notas',false,3)
+  ('combo-degustacion','Pack Degustacion','4 sabores tamano Grande a elegir',179,'🎁','Envio incluido','Indica tus 4 sabores en Notas',true,1),
+  ('combo-fiesta','Pack Fiesta','6 sabores tamano Grande a elegir',259,'🎉','Para compartir','Indica tus 6 sabores en Notas',true,2),
+  ('combo-cine','Combo Cine','2 palomitas tamano Mediana + 2 refrescos',99,'🎬',null,'Indica sabores y refrescos en Notas',false,3)
 on conflict (id) do nothing;
 
 insert into extras (id,nombre,descripcion,precio,icon,cat,orden) values
