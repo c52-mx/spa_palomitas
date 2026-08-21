@@ -220,7 +220,7 @@
     <div class="grid">
       <main>
         <h2 class="sec">Nuestros sabores</h2>
-        <p class="sec-nota">Elige el tamaño en cada sabor. Hasta {{ CFG.TOPE_POR_SABOR }} por sabor y tamaño; mas es pedido especial.</p>
+        <p class="sec-nota">Elige el tamaño en cada sabor. Hasta {{ CFG.TOPE_POR_SABOR }} por sabor y tamaño; también hacemos pedidos para fiestas o cualquier tipo de evento.</p>
 
         <template v-for="cat in categorias" :key="cat.id">
           <div class="cat" :class="cat.id"><span class="dot"></span>{{ cat.nombre }}</div>
@@ -286,10 +286,10 @@
         <div class="polis">
           <div class="poli"><h3><span class="ic">📦</span>Pedido minimo</h3><p>{{ CFG.PEDIDO_MINIMO }} paquetes de palomitas, o cualquier combo.</p></div>
           <div class="poli"><h3><span class="ic">🗓️</span>Anticipacion</h3><p>Minimo {{ CFG.ANTICIPACION_DIAS }} dia antes. El calendario bloquea fechas mas cercanas.</p></div>
-          <div class="poli"><h3><span class="ic">🛵</span>Envio ${{ CFG.COSTO_ENVIO }}</h3><p>Zonas Heroes 1 a 6, Tecamac y parte de Ojo de Agua. Gratis en combos.</p></div>
+          <div class="poli"><h3><span class="ic">🛵</span>Envio ${{ CFG.COSTO_ENVIO }}</h3><p>Zonas Heroes V , Heroes VI, Bosques y parte de Ojo de Agua. Gratis en combos.</p></div>
           <div class="poli"><h3><span class="ic">🏠</span>Pickup</h3><p>Te pasamos las indicaciones de recoleccion por WhatsApp.</p></div>
           <div class="poli"><h3><span class="ic">💳</span>Pago</h3><p>Efectivo o transferencia, con 50% de anticipo.</p></div>
-          <div class="poli"><h3><span class="ic">🌶️</span>Tope por sabor</h3><p>Hasta {{ CFG.TOPE_POR_SABOR }} por tamaño; mas es pedido especial.</p></div>
+          <div class="poli"><h3><span class="ic">🌶️</span>Tope por sabor</h3><p>Hasta {{ CFG.TOPE_POR_SABOR }} por tamaño; también hacemos pedidos para fiestas o cualquier tipo evento.</p></div>
         </div>
       </main>
 
@@ -366,8 +366,8 @@ const { createApp, ref, reactive, computed, onMounted } = Vue;
 
 /* ====== Supabase: pega tu URL y anon key (Project Settings > API) ======
    Mientras esten en placeholder, el sitio usa el catalogo local de abajo. */
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+const SUPABASE_URL = 'https://api-palomitas.codigo52.com.mx';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3ODcyNjc3MzIsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6ImFub24iLCJpc3MiOiJzdXBhYmFzZSJ9.Lfm3GYm_v179H_J_ZbT475MYYK2Dnc_zr4MosAwnSaQ';
 const USA_SB = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('TU-PROYECTO') && typeof supabase !== 'undefined';
 const sb = USA_SB ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
@@ -438,7 +438,7 @@ createApp({
         {categoria:'dulce',  tamano_id:'chica', precio:25}, {categoria:'dulce',  tamano_id:'mediana', precio:35}, {categoria:'dulce',  tamano_id:'grande', precio:55}, {categoria:'dulce',  tamano_id:'extra_grande', precio:80},
         {categoria:'icee',   tamano_id:'chica', precio:25}, {categoria:'icee',   tamano_id:'mediana', precio:35}, {categoria:'icee',   tamano_id:'grande', precio:55}, {categoria:'icee',   tamano_id:'extra_grande', precio:80}
       ],
-      ZONAS: ['Zona Heroes 5','Zona Heroes 6','Tecamac','Ojo de Agua (cobertura parcial)']
+      ZONAS: ['Zona Heroes 5','Zona Heroes 6','Bosques','Ojo de Agua (cobertura parcial)']
     });
     const TALLA_DEFAULT = 'mediana';
     const categorias = [

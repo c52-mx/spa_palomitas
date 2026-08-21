@@ -287,8 +287,8 @@
 
 <script>
 const { createApp, ref, reactive, computed, onMounted } = Vue;
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+const SUPABASE_URL = 'https://api-palomitas.codigo52.com.mx';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3ODcyNjc3MzIsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6ImFub24iLCJpc3MiOiJzdXBhYmFzZSJ9.Lfm3GYm_v179H_J_ZbT475MYYK2Dnc_zr4MosAwnSaQ';
 const USA_SB = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('TU-PROYECTO') && typeof supabase !== 'undefined';
 const sb = USA_SB ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 

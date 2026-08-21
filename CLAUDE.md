@@ -1,7 +1,7 @@
 # Las Palomitas de los Abuelos — Mini-POS por WhatsApp
 
 Sistema de pedidos para un negocio casero de palomitas artesanales **sobre pedido**
-(zonas Héroes, Tecámac y parte de Ojo de Agua, Estado de México). El cliente llega por
+(zonas Héroes, Bosques y parte de Ojo de Agua, Estado de México). El cliente llega por
 un **QR**, arma su pedido en una página web, y al confirmar se abre **WhatsApp** con el
 pedido ya escrito. No hay bot: el handoff es un deep link `wa.me`.
 
@@ -28,8 +28,13 @@ pedido ya escrito. No hay bot: el handoff es un deep link `wa.me`.
 
 - **Frontend:** Vue 3 (global build por CDN, Composition API), CSS a mano. Sin build.
 - **Cliente Supabase:** `@supabase/supabase-js@2` (UMD por CDN).
-- **Backend:** Supabase — Postgres + RLS + Auth + RPC (plpgsql).
-- **Hosting objetivo:** estático (Cloudflare Pages / Vercel / Netlify), plan gratis.
+- **Backend:** Supabase — Postgres + RLS + Auth + RPC (plpgsql). **Self-hosted** (Docker) en el
+  VPS propio vía Dokploy — no Supabase Cloud. API en `https://api-palomitas.codigo52.com.mx`
+  (contenedor Kong), Studio (dashboard/SQL Editor) en `https://studio-palomitas.codigo52.com.mx`.
+  Mantenimiento del stack (backups, actualizaciones) corre por cuenta propia, no de Supabase.
+- **Hosting frontend:** Cloudflare Workers (assets estáticos, ver `wrangler.jsonc`), plan gratis.
+  Rama `prod` = producción, resto de ramas = preview automático. Dominio: subdominio
+  `*.workers.dev` de la cuenta (sin dominio propio, deliberado para no mezclar marca).
 - **Pruebas:** Node + `jsdom` (monta las SPAs con un cliente Supabase simulado) y
   `@electric-sql/pglite` (corre el SQL contra un Postgres real en WASM).
 
@@ -80,7 +85,7 @@ panel muestra una pantalla de "falta configurar".
 
 - **Marca:** "Las Palomitas de los Abuelos" — *Sabor artesanal sobre pedido · Por gramo y con amor*.
 - **WhatsApp:** `525538010548` (52 + 10 dígitos). Si no llegan mensajes, probar `5215538010548`.
-- **Zonas de envío:** Zona Héroes 5–6, Tecámac, Ojo de Agua (cobertura parcial). **Envío $30**;
+- **Zonas de envío:** Zona Héroes 5–6, Bosques, Ojo de Agua (cobertura parcial). **Envío $30**;
   pickup con indicaciones por WhatsApp.
 - **Reglas:** pedido mínimo **5 paquetes de palomitas o un combo**; anticipación mínima **1 día**;
   tope **10 por sabor y tamaño** (más = pedido especial); **anticipo 50%** (por transferencia,
@@ -169,14 +174,16 @@ no están incluidos en este repo (se recrean/exportan aparte).
 
 ## 10. Backlog (priorizado por valor real)
 
-1. **Deploy + validación end-to-end con un pedido real.** Todo está probado con mocks/pglite,
-   pero la conexión viva al proyecto Supabase aún no se ejerce. Es lo siguiente.
-2. **Descuento automático de stock al confirmar.** Hoy el stock es editable a mano y oculta
+1. **Descuento automático de stock al confirmar.** Hoy el stock es editable a mano y oculta
    agotados; el descuento **no** es automático. Punto veraz de descuento = cuando el admin marca
    el pedido `confirmado` (no al picar el botón, porque `wa.me` puede no enviarse). Implementar con
    una función Postgres atómica para no dejar stock negativo. *No urgente a baja escala.*
+2. **Backups del Postgres self-hosted.** Al no ser Supabase Cloud, no hay backup automático —
+   falta un cron con `pg_dump` hacia fuera del VPS. Sí urge, es la pieza que falta para no perder
+   `orders` ante un desastre del VPS.
 3. **Subida de imágenes** a Supabase Storage (hoy `img` es una URL manual).
-4. **Dominio propio** (opcional, ~$200 MXN/año un `.com`).
+4. **Dominio propio para el frontend** (opcional, ~$200 MXN/año un `.com`) — el backend ya vive
+   en `api-palomitas.codigo52.com.mx`, esto sería solo para la SPA del cliente.
 
 ## 11. Limitaciones y tradeoffs aceptados
 
@@ -204,14 +211,29 @@ no están incluidos en este repo (se recrean/exportan aparte).
 - **Probar antes de cerrar** cualquier cambio: correr las suites (o replicarlas si se recrean).
 - Verificar que los HTML queden **UTF-8** y sin caracteres de reemplazo (los emojis importan).
 
-## 14. Despliegue (una sola vez)
+## 14. Despliegue (estado real de este proyecto)
 
-1. Crear proyecto en supabase.com (plan gratis).
-2. **SQL Editor → New query →** pegar `schema.sql` completo → **Run** (idempotente).
-3. **Authentication → Users → Add user**: correo + contraseña (marcar correo confirmado). Ese es el acceso al panel.
-4. **Project Settings → API**: copiar *Project URL* y *anon public key*.
-5. Pegar ambos en el bloque de config de **los dos** HTML (mismos valores).
-6. Subir los dos HTML a hosting estático (Cloudflare Pages / Vercel / Netlify). El QR apunta a
-   `pedidos-palomitas.html`; `admin.html` en ruta discreta.
-7. Prueba de humo: hacer un pedido real, verificar que llegue el WhatsApp, que aparezca en `orders`
-   y que un cambio de precio/disponible en el panel se refleje al recargar el sitio.
+**Backend — Supabase self-hosted vía Dokploy** (VPS propio, no Supabase Cloud):
+1. Proyecto `palomitas-supabase` en Dokploy → servicio Compose con la plantilla oficial de
+   Supabase (define Postgres, Kong, Auth, PostgREST, Studio, Realtime, Storage, Meta, etc.).
+2. Dominios expuestos vía Dokploy (Traefik + Let's Encrypt automático):
+   - Kong (API) → `api-palomitas.codigo52.com.mx`, puerto interno `8000` → este es el `SUPABASE_URL`.
+   - Studio (dashboard) → `studio-palomitas.codigo52.com.mx`, puerto interno `3000`.
+   - DNS de `codigo52.com.mx` administrado en Hostinger; registros tipo A apuntando a la IP del VPS.
+   - ⚠️ Si un dominio nuevo da 404 tras configurarlo en Dokploy, no es propagación DNS: hace falta
+     **Reload** del servicio para que Traefik tome los labels/red nuevos.
+3. **Studio → SQL Editor →** pegar `schema.sql` completo → **Run** (idempotente).
+4. **Studio → Authentication → Users → Add user**: correo + contraseña (marcar correo confirmado). Acceso al panel.
+5. `ANON_KEY` sale de las variables de entorno del servicio en Dokploy (se define/genera al montar el stack, no se "copia" de un dashboard como en Cloud).
+6. **Backups:** no vienen automáticos por este camino — pendiente (ver backlog #2).
+
+**Frontend — Cloudflare Workers** (assets estáticos, `wrangler.jsonc`):
+1. Repo `github.com/c52-mx/spa_palomitas`, ramas `master` / `prod` (producción) / `dev` (trabajo).
+2. Proyecto `spa-palomitas` en Cloudflare Workers, conectado al repo — rama `prod` = producción,
+   cualquier otra rama genera preview automático.
+3. Pegar `SUPABASE_URL` + `ANON_KEY` (del backend de arriba) en el bloque de config de **los dos** HTML.
+4. QR apunta a `/pedidos-palomitas` (funciona sin `.html` por el manejo de assets de Cloudflare);
+   `admin.html` en ruta discreta.
+5. Prueba de humo: hacer un pedido real (ya hecha vía `curl` directo a `crear_pedido` ✅), verificar
+   que llegue el WhatsApp, que aparezca en `orders`, y que un cambio de precio/disponible en el
+   panel se refleje al recargar el sitio.
