@@ -428,7 +428,7 @@ createApp({
     /* ===== Catalogo local por defecto (fallback + semilla) ===== */
     const CFG = reactive({
       NEGOCIO: 'Las Palomitas de los Abuelos',
-      WHATSAPP_NUMERO: '525566707620',
+      WHATSAPP_NUMERO: '525538010548',
       PEDIDO_MINIMO: 5, ANTICIPACION_DIAS: 1, TOPE_POR_SABOR: 10,
       COSTO_ENVIO: 30, ANTICIPO_PCT: 0.5, HORA_ABRE: 10, HORA_CIERRA: 18,
       HORARIO: '10:00 a 18:00 h',
@@ -438,7 +438,7 @@ createApp({
         {categoria:'dulce',  tamano_id:'chica', precio:25}, {categoria:'dulce',  tamano_id:'mediana', precio:35}, {categoria:'dulce',  tamano_id:'grande', precio:55}, {categoria:'dulce',  tamano_id:'extra_grande', precio:80},
         {categoria:'icee',   tamano_id:'chica', precio:25}, {categoria:'icee',   tamano_id:'mediana', precio:35}, {categoria:'icee',   tamano_id:'grande', precio:55}, {categoria:'icee',   tamano_id:'extra_grande', precio:80}
       ],
-      ZONAS: ['Zona Heroes 1','Zona Heroes 2','Zona Heroes 3','Zona Heroes 4','Zona Heroes 5','Zona Heroes 6','Tecamac','Ojo de Agua (cobertura parcial)']
+      ZONAS: ['Zona Heroes 5','Zona Heroes 6','Tecamac','Ojo de Agua (cobertura parcial)']
     });
     const TALLA_DEFAULT = 'mediana';
     const categorias = [
@@ -469,9 +469,9 @@ createApp({
       { id:'iceecombinada', nombre:'Icee combinada', cat:'icee', icon:'🌈' }
     ]);
     const combos = ref([
-      { id:'combo-degustacion', nombre:'Pack Degustacion', desc:'4 sabores tamano Grande a elegir', precio:299, icon:'🎁', badge:'Envio incluido', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 4 sabores en Notas' },
-      { id:'combo-fiesta', nombre:'Pack Fiesta', desc:'6 sabores tamano Grande a elegir', precio:549, icon:'🎉', badge:'Para compartir', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 6 sabores en Notas' },
-      { id:'combo-cine', nombre:'Combo Cine', desc:'2 palomitas tamano Mediana + 2 refrescos', precio:175, icon:'🎬', tipo:'combo', comboHint:'Indica sabores y refrescos en Notas' }
+      { id:'combo-degustacion', nombre:'Pack Degustacion', desc:'4 sabores tamano Grande a elegir', precio:179, icon:'🎁', badge:'Envio incluido', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 4 sabores en Notas' },
+      { id:'combo-fiesta', nombre:'Pack Fiesta', desc:'6 sabores tamano Grande a elegir', precio:259, icon:'🎉', badge:'Para compartir', envioIncluido:true, tipo:'combo', comboHint:'Indica tus 6 sabores en Notas' },
+      { id:'combo-cine', nombre:'Combo Cine', desc:'2 palomitas tamano Mediana + 2 refrescos', precio:99, icon:'🎬', tipo:'combo', comboHint:'Indica sabores y refrescos en Notas' }
     ]);
     const extras = ref([
       { id:'ex-refresco', nombre:'Refresco en lata 355 ml', desc:'Cola, sabores o light', precio:28, icon:'🥤', cat:'icee', tipo:'extra' },
