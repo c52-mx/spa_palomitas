@@ -123,7 +123,7 @@ create policy "orders_update" on orders for update to authenticated using (true)
 -- ---------- SEED (catalogo actual) ----------
 insert into config (id, negocio, whatsapp_numero, zonas) values
   (1, 'Las Palomitas de los Abuelos', '525538010548',
-   '["Zona Heroes 5","Zona Heroes 6","Tecamac","Ojo de Agua (cobertura parcial)"]'::jsonb)
+   '["Zona Heroes 5","Zona Heroes 6","Bosques","Ojo de Agua (cobertura parcial)"]'::jsonb)
 on conflict (id) do nothing;
 
 -- migracion desde el modelo anterior por gramaje, si existia en una corrida previa
